@@ -241,9 +241,17 @@ export default function PhoneGeneratorPage() {
   const [page, setPage] = useState(0);
   const [isCopiedAll, setIsCopiedAll] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
   const ITEMS_PER_PAGE = 20;
 
   useEffect(() => {
+    setIsMounted(true);
+
+    if (typeof window === 'undefined') {
+      setSelectedCountry(countries[0]);
+      return;
+    }
+
     try {
       const savedCountryId = localStorage.getItem(STORAGE_KEY_COUNTRY);
       const savedCount = localStorage.getItem(STORAGE_KEY_COUNT);
@@ -385,34 +393,29 @@ export default function PhoneGeneratorPage() {
             <CardDescription>选择要生成手机号的国家或地区</CardDescription>
           </CardHeader>
           <CardContent>
-            <button
-              onClick={() => { haptic(20); setShowCountrySelector(true); }}
-              className="w-full p-4 flex items-center justify-between rounded-lg hover:bg-accent transition-colors border border-transparent hover:border-border"
-            >
-              <div className="flex items-center gap-3 flex-1 min-w-0">
-                {selectedCountry ? (
-                  <>
-                    <CountryFlag countryCode={selectedCountry.id} className="w-12 h-9 shrink-0" />
-                    <div className="flex-1 min-w-0 text-left">
-                      <div className="text-sm font-semibold truncate">
-                        {selectedCountry.name}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {selectedCountry.code}
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  <div className="flex items-center gap-3">
-                    <div className="shrink-0 w-12 h-9 bg-muted rounded flex items-center justify-center">
-                      <Icon name="globe" className="w-5 h-5 text-muted-foreground" />
-                    </div>
-                    <span className="text-sm font-medium">选择国家</span>
-                  </div>
-                )}
+            {!isMounted || !selectedCountry ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="w-6 h-6 border-2 border-muted border-t-primary rounded-full animate-spin" />
               </div>
-              <Icon name="chevronRight" className="w-5 h-5 text-muted-foreground shrink-0" />
-            </button>
+            ) : (
+              <button
+                onClick={() => { haptic(20); setShowCountrySelector(true); }}
+                className="w-full p-4 flex items-center justify-between rounded-lg hover:bg-accent transition-colors border border-transparent hover:border-border"
+              >
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <CountryFlag countryCode={selectedCountry.id} className="w-12 h-9 shrink-0" />
+                  <div className="flex-1 min-w-0 text-left">
+                    <div className="text-sm font-semibold truncate">
+                      {selectedCountry.name}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {selectedCountry.code}
+                    </div>
+                  </div>
+                </div>
+                <Icon name="chevronRight" className="w-5 h-5 text-muted-foreground shrink-0" />
+              </button>
+            )}
           </CardContent>
         </Card>
 

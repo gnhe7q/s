@@ -345,13 +345,13 @@ DomainList.displayName = 'DomainList';
 export default function HomePage() {
   const [selectedCountry, setSelectedCountry] = useState<CountryConfig>(countries[0]);
   const [selectedDomain, setSelectedDomain] = useState<string>('random');
-  const [userInfo, setUserInfo] = useState<UserInfo>(() => {
-    const { firstName, lastName } = generateName(countries[0].code);
-    const birthday = generateBirthday();
-    const phone = generatePhone(countries[0]);
-    const password = generatePassword();
-    const email = generateEmail(firstName, lastName);
-    return { firstName, lastName, birthday, phone, password, email };
+  const [userInfo, setUserInfo] = useState<UserInfo>({
+    firstName: '',
+    lastName: '',
+    birthday: '',
+    phone: '',
+    password: '',
+    email: ''
   });
   const [showCountrySheet, setShowCountrySheet] = useState(false);
   const [showDomainSheet, setShowDomainSheet] = useState(false);
@@ -360,6 +360,7 @@ export default function HomePage() {
   const [inboxStatus, setInboxStatus] = useState<'idle' | 'opening'>('idle');
   const [showMenu, setShowMenu] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
 
   const copyTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -399,7 +400,7 @@ export default function HomePage() {
 
   const handleInboxClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    if (inboxStatus === 'opening') return;
+    if (inboxStatus === 'opening' || !userInfo.email) return;
     haptic(30);
     setInboxStatus('opening');
     const emailName = userInfo.email.split('@')[0];
@@ -410,39 +411,53 @@ export default function HomePage() {
   }, [userInfo.email, inboxStatus]);
 
   useEffect(() => {
-    let isMounted = true;
-    const detectIP = async () => {
+    setIsMounted(true);
+    let isActive = true;
+
+    const initializeData = async () => {
       try {
         const response = await fetch('/api/ip-info');
         const data = await response.json();
-        if (!isMounted) return;
+
+        if (!isActive) return;
+
         setIpInfo({ ip: data.ip || '未知', country: data.country || 'US' });
+
+        let countryToUse = countries[0];
         if (data.country && data.accurate) {
           const detectedCountry = getCountryConfig(data.country);
           if (detectedCountry) {
+            countryToUse = detectedCountry;
             setSelectedCountry(detectedCountry);
-            const { firstName, lastName } = generateName(detectedCountry.code);
-            const birthday = generateBirthday();
-            const phone = generatePhone(detectedCountry);
-            const password = generatePassword();
-            const customDomain = selectedDomain === 'random' ? undefined : selectedDomain;
-            const email = generateEmail(firstName, lastName, customDomain);
-            setUserInfo({ firstName, lastName, birthday, phone, password, email });
           }
         }
+
+        const { firstName, lastName } = generateName(countryToUse.code);
+        const birthday = generateBirthday();
+        const phone = generatePhone(countryToUse);
+        const password = generatePassword();
+        const email = generateEmail(firstName, lastName);
+        setUserInfo({ firstName, lastName, birthday, phone, password, email });
       } catch (error) {
-        if (isMounted) {
+        if (isActive) {
           setIpInfo({ ip: '未知', country: 'US' });
+          const { firstName, lastName } = generateName(countries[0].code);
+          const birthday = generateBirthday();
+          const phone = generatePhone(countries[0]);
+          const password = generatePassword();
+          const email = generateEmail(firstName, lastName);
+          setUserInfo({ firstName, lastName, birthday, phone, password, email });
         }
       }
     };
-    detectIP();
-    return () => { isMounted = false; };
+
+    initializeData();
+    return () => { isActive = false; };
   }, []);
 
   useEffect(() => {
-    if (userInfo.firstName) generate();
-  }, [selectedCountry.code]);
+    if (isMounted && userInfo.firstName) generate();
+  }, [selectedCountry.code, isMounted]);
 
   const allDomains = useMemo(() => getAllDomains(), []);
   const displayDomain = selectedDomain === 'random' ? '随机' : selectedDomain;
@@ -484,13 +499,19 @@ export default function HomePage() {
                   <CardDescription>点击任意字段即可复制到剪贴板</CardDescription>
                 </CardHeader>
                 <CardContent className="p-0">
-                  <div className="space-y-0.5 px-2">
-                    <InfoRow label="姓氏" value={userInfo.lastName} onCopy={() => copyToClipboard(userInfo.lastName, '姓氏')} isCopied={copiedField === '姓氏'} />
-                    <InfoRow label="名字" value={userInfo.firstName} onCopy={() => copyToClipboard(userInfo.firstName, '名字')} isCopied={copiedField === '名字'} />
-                    <InfoRow label="生日" value={userInfo.birthday} onCopy={() => copyToClipboard(userInfo.birthday, '生日')} isCopied={copiedField === '生日'} />
-                    <InfoRow label="手机号" value={userInfo.phone} onCopy={() => copyToClipboard(userInfo.phone, '手机号')} isCopied={copiedField === '手机号'} />
-                    <InfoRow label="密码" value={userInfo.password} onCopy={() => copyToClipboard(userInfo.password, '密码')} isCopied={copiedField === '密码'} />
-                  </div>
+                  {!isMounted || !userInfo.firstName ? (
+                    <div className="flex items-center justify-center py-12">
+                      <div className="w-8 h-8 border-2 border-muted border-t-primary rounded-full animate-spin" />
+                    </div>
+                  ) : (
+                    <>
+                      <div className="space-y-0.5 px-2">
+                        <InfoRow label="姓氏" value={userInfo.lastName} onCopy={() => copyToClipboard(userInfo.lastName, '姓氏')} isCopied={copiedField === '姓氏'} />
+                        <InfoRow label="名字" value={userInfo.firstName} onCopy={() => copyToClipboard(userInfo.firstName, '名字')} isCopied={copiedField === '名字'} />
+                        <InfoRow label="生日" value={userInfo.birthday} onCopy={() => copyToClipboard(userInfo.birthday, '生日')} isCopied={copiedField === '生日'} />
+                        <InfoRow label="手机号" value={userInfo.phone} onCopy={() => copyToClipboard(userInfo.phone, '手机号')} isCopied={copiedField === '手机号'} />
+                        <InfoRow label="密码" value={userInfo.password} onCopy={() => copyToClipboard(userInfo.password, '密码')} isCopied={copiedField === '密码'} />
+                      </div>
 
                   <Separator className="my-4" />
 
@@ -537,6 +558,8 @@ export default function HomePage() {
                       </Button>
                     </div>
                   </div>
+                    </>
+                  )}
                 </CardContent>
               </Card>
 
